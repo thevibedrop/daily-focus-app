@@ -24,6 +24,12 @@
             padding: 1em;
             border-radius: 8px;
             box-shadow: 0 0 5px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .task input[type="text"] {
+            width: 90%;
+            font-size: 1.1em;
+            padding: 0.5em;
         }
         #inputSection {
             display: block;
@@ -38,7 +44,6 @@
         <button onclick="addTask()">Add Task</button>
     </div>
     <button onclick="clearTasks()">Clear All</button>
-    <h2>Your Tasks</h2>
     <div id="taskList"></div>
 
     <script>
@@ -51,10 +56,53 @@
             tasks.forEach((task, index) => {
                 const div = document.createElement("div");
                 div.className = "task";
-                div.textContent = (index + 1) + ". " + task;
+                div.textContent = task;
+
+                let pressTimer;
+
+                div.addEventListener("touchstart", (e) => {
+                    pressTimer = setTimeout(() => makeEditable(div, index), 500);
+                });
+                div.addEventListener("touchend", () => clearTimeout(pressTimer));
+                div.addEventListener("mousedown", () => {
+                    pressTimer = setTimeout(() => makeEditable(div, index), 500);
+                });
+                div.addEventListener("mouseup", () => clearTimeout(pressTimer));
+                div.addEventListener("mouseleave", () => clearTimeout(pressTimer));
+
                 taskList.appendChild(div);
             });
             inputSection.style.display = tasks.length >= 5 ? "none" : "block";
+        }
+
+        function makeEditable(div, index) {
+            const currentText = tasks[index];
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = currentText;
+
+            input.addEventListener("keydown", function (e) {
+                if (e.key === "Enter") {
+                    saveEdit(index, input.value);
+                }
+            });
+
+            input.addEventListener("blur", function () {
+                saveEdit(index, input.value);
+            });
+
+            div.innerHTML = "";
+            div.appendChild(input);
+            input.focus();
+        }
+
+        function saveEdit(index, newValue) {
+            newValue = newValue.trim();
+            if (newValue) {
+                tasks[index] = newValue;
+                localStorage.setItem("tasks", JSON.stringify(tasks));
+            }
+            renderTasks();
         }
 
         function addTask() {
