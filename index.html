@@ -26,12 +26,18 @@
       box-shadow: 0 0 5px rgba(0,0,0,0.1);
       position: relative;
       user-select: none;
+      touch-action: none;
       transition: opacity 2s ease-out;
     }
     .completed {
       text-decoration: line-through;
       color: gray;
       opacity: 0;
+    }
+    .editing input {
+      font-size: 1.2em;
+      width: 90%;
+      padding: 0.5em;
     }
     #inputSection {
       display: block;
@@ -66,21 +72,86 @@
           const div = document.createElement("div");
           div.className = "task";
           div.textContent = task;
+          div.dataset.index = index;
 
-          div.addEventListener("click", () => {
-            div.classList.add("completed");
-            setTimeout(() => {
-              completed[index] = true;
-              saveTasks();
-              renderTasks();
-            }, 2000);
+          // Swipe detection and long press for editing
+          let startX = 0;
+          let longPressTimer;
+
+          div.addEventListener("touchstart", (e) => {
+            startX = e.touches[0].clientX;
+            longPressTimer = setTimeout(() => startEdit(index), 500);
+          });
+          div.addEventListener("touchend", (e) => {
+            clearTimeout(longPressTimer);
+            const endX = e.changedTouches[0].clientX;
+            const dx = endX - startX;
+            if (Math.abs(dx) > 50) {
+              div.classList.add("completed");
+              setTimeout(() => {
+                completed[index] = true;
+                saveTasks();
+                renderTasks();
+              }, 2000);
+            }
+          });
+
+          let mouseStart = 0;
+          div.addEventListener("mousedown", (e) => {
+            mouseStart = e.clientX;
+            longPressTimer = setTimeout(() => startEdit(index), 500);
+          });
+          div.addEventListener("mouseup", (e) => {
+            clearTimeout(longPressTimer);
+            const dx = e.clientX - mouseStart;
+            if (Math.abs(dx) > 50) {
+              div.classList.add("completed");
+              setTimeout(() => {
+                completed[index] = true;
+                saveTasks();
+                renderTasks();
+              }, 2000);
+            }
           });
 
           taskList.appendChild(div);
         }
       });
+
       const visibleCount = completed.filter(c => !c).length;
       inputSection.style.display = visibleCount >= 6 ? "none" : "block";
+    }
+
+    function startEdit(index) {
+      const taskElements = document.querySelectorAll(".task");
+      let targetEl;
+      taskElements.forEach(el => {
+        if (+el.dataset.index === index) {
+          targetEl = el;
+        }
+      });
+
+      if (!targetEl) return;
+
+      const oldText = tasks[index];
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = oldText;
+
+      const saveEdit = () => {
+        tasks[index] = input.value.trim() || oldText;
+        saveTasks();
+        renderTasks();
+      };
+
+      targetEl.innerHTML = "";
+      targetEl.classList.add("editing");
+      targetEl.appendChild(input);
+      input.focus();
+      input.addEventListener("blur", saveEdit);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") saveEdit();
+      });
     }
 
     function addTask() {
