@@ -2,161 +2,110 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Today's Focus</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: sans-serif;
-            text-align: center;
-            padding: 2em;
-            background: #e0f7fa;
-        }
-        input, button {
-            padding: 1em;
-            margin: 0.5em;
-            font-size: 1em;
-        }
-        .task {
-            margin: 0.5em 0;
-            font-size: 1.2em;
-            background: white;
-            padding: 1em;
-            border-radius: 8px;
-            box-shadow: 0 0 5px rgba(0,0,0,0.1);
-            position: relative;
-            transition: background 0.3s, transform 0.2s;
-        }
-        .completed {
-            text-decoration: line-through;
-            color: gray;
-            opacity: 0.6;
-        }
-        .task input[type="text"] {
-            width: 90%;
-            font-size: 1.1em;
-            padding: 0.5em;
-        }
-        #inputSection {
-            display: block;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Today's Focus</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2em;
+      background: #e0f7fa;
+    }
+    input, button {
+      padding: 1em;
+      margin: 0.5em;
+      font-size: 1em;
+    }
+    .task {
+      margin: 0.5em 0;
+      font-size: 1.2em;
+      background: white;
+      padding: 1em;
+      border-radius: 8px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      position: relative;
+      user-select: none;
+      transition: opacity 2s ease-out;
+    }
+    .completed {
+      text-decoration: line-through;
+      color: gray;
+      opacity: 0;
+    }
+    #inputSection {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-    <h1>What Are You Working On Today?</h1>
-    <div id="inputSection">
-        <input type="text" id="taskInput" placeholder="Enter task (max 6)">
-        <br>
-        <button onclick="addTask()">Add Task</button>
-    </div>
-    <button onclick="clearTasks()">Clear All</button>
-    <div id="taskList"></div>
+  <h1>What Are You Working On Today?</h1>
+  <div id="inputSection">
+    <input type="text" id="taskInput" placeholder="Enter task (max 6 visible)">
+    <br>
+    <button onclick="addTask()">Add Task</button>
+  </div>
+  <button onclick="clearTasks()">Clear All</button>
+  <div id="taskList"></div>
 
-    <script>
-        let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
-        let completed = JSON.parse(localStorage.getItem("completed")) || [];
-        const taskList = document.getElementById("taskList");
-        const inputSection = document.getElementById("inputSection");
+  <script>
+    let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+    let completed = JSON.parse(localStorage.getItem("completed")) || [];
+    const taskList = document.getElementById("taskList");
+    const inputSection = document.getElementById("inputSection");
 
-        function renderTasks() {
-            taskList.innerHTML = "";
-            tasks.forEach((task, index) => {
-                const div = document.createElement("div");
-                div.className = "task";
-                if (completed[index]) div.classList.add("completed");
-                div.textContent = task;
+    function saveTasks() {
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      localStorage.setItem("completed", JSON.stringify(completed));
+    }
 
-                let pressTimer;
-                let startX = 0;
+    function renderTasks() {
+      taskList.innerHTML = "";
+      tasks.forEach((task, index) => {
+        if (!completed[index]) {
+          const div = document.createElement("div");
+          div.className = "task";
+          div.textContent = task;
 
-                div.addEventListener("touchstart", (e) => {
-                    startX = e.touches[0].clientX;
-                    pressTimer = setTimeout(() => makeEditable(div, index), 500);
-                });
-                div.addEventListener("touchend", (e) => {
-                    clearTimeout(pressTimer);
-                    if (Math.abs(e.changedTouches[0].clientX - startX) > 50) {
-                        toggleStrike(index);
-                    }
-                });
+          div.addEventListener("click", () => {
+            div.classList.add("completed");
+            setTimeout(() => {
+              completed[index] = true;
+              saveTasks();
+              renderTasks();
+            }, 2000);
+          });
 
-                div.addEventListener("mousedown", (e) => {
-                    startX = e.clientX;
-                    pressTimer = setTimeout(() => makeEditable(div, index), 500);
-                });
-                div.addEventListener("mouseup", (e) => {
-                    clearTimeout(pressTimer);
-                    if (Math.abs(e.clientX - startX) > 50) {
-                        toggleStrike(index);
-                    }
-                });
-                div.addEventListener("mouseleave", () => clearTimeout(pressTimer));
-
-                taskList.appendChild(div);
-            });
-            inputSection.style.display = tasks.length >= 6 ? "none" : "block";
+          taskList.appendChild(div);
         }
+      });
+      const visibleCount = completed.filter(c => !c).length;
+      inputSection.style.display = visibleCount >= 6 ? "none" : "block";
+    }
 
-        function toggleStrike(index) {
-            completed[index] = !completed[index];
-            localStorage.setItem("completed", JSON.stringify(completed));
-            renderTasks();
-        }
-
-        function makeEditable(div, index) {
-            const currentText = tasks[index];
-            const input = document.createElement("input");
-            input.type = "text";
-            input.value = currentText;
-
-            input.addEventListener("keydown", function (e) {
-                if (e.key === "Enter") {
-                    saveEdit(index, input.value);
-                }
-            });
-
-            input.addEventListener("blur", function () {
-                saveEdit(index, input.value);
-            });
-
-            div.innerHTML = "";
-            div.appendChild(input);
-            input.focus();
-        }
-
-        function saveEdit(index, newValue) {
-            newValue = newValue.trim();
-            if (newValue) {
-                tasks[index] = newValue;
-                localStorage.setItem("tasks", JSON.stringify(tasks));
-            }
-            renderTasks();
-        }
-
-        function addTask() {
-            const input = document.getElementById("taskInput");
-            const value = input.value.trim();
-            if (value && tasks.length < 6) {
-                tasks.push(value);
-                completed.push(false);
-                localStorage.setItem("tasks", JSON.stringify(tasks));
-                localStorage.setItem("completed", JSON.stringify(completed));
-                input.value = "";
-                renderTasks();
-            }
-        }
-
-        function clearTasks() {
-            if (confirm("Clear all tasks?")) {
-                tasks = [];
-                completed = [];
-                localStorage.removeItem("tasks");
-                localStorage.removeItem("completed");
-                renderTasks();
-            }
-        }
-
+    function addTask() {
+      const input = document.getElementById("taskInput");
+      const value = input.value.trim();
+      if (value && completed.filter(c => !c).length < 6) {
+        tasks.push(value);
+        completed.push(false);
+        saveTasks();
+        input.value = "";
         renderTasks();
-    </script>
+      }
+    }
+
+    function clearTasks() {
+      if (confirm("Clear all tasks?")) {
+        tasks = [];
+        completed = [];
+        localStorage.removeItem("tasks");
+        localStorage.removeItem("completed");
+        renderTasks();
+      }
+    }
+
+    renderTasks();
+  </script>
 </body>
 </html>
