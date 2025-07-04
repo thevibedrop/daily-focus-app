@@ -25,6 +25,12 @@
             border-radius: 8px;
             box-shadow: 0 0 5px rgba(0,0,0,0.1);
             position: relative;
+            transition: background 0.3s, transform 0.2s;
+        }
+        .completed {
+            text-decoration: line-through;
+            color: gray;
+            opacity: 0.6;
         }
         .task input[type="text"] {
             width: 90%;
@@ -39,7 +45,7 @@
 <body>
     <h1>What Are You Working On Today?</h1>
     <div id="inputSection">
-        <input type="text" id="taskInput" placeholder="Enter task (max 5)">
+        <input type="text" id="taskInput" placeholder="Enter task (max 6)">
         <br>
         <button onclick="addTask()">Add Task</button>
     </div>
@@ -48,6 +54,7 @@
 
     <script>
         let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+        let completed = JSON.parse(localStorage.getItem("completed")) || [];
         const taskList = document.getElementById("taskList");
         const inputSection = document.getElementById("inputSection");
 
@@ -56,23 +63,44 @@
             tasks.forEach((task, index) => {
                 const div = document.createElement("div");
                 div.className = "task";
+                if (completed[index]) div.classList.add("completed");
                 div.textContent = task;
 
                 let pressTimer;
+                let startX = 0;
 
                 div.addEventListener("touchstart", (e) => {
+                    startX = e.touches[0].clientX;
                     pressTimer = setTimeout(() => makeEditable(div, index), 500);
                 });
-                div.addEventListener("touchend", () => clearTimeout(pressTimer));
-                div.addEventListener("mousedown", () => {
+                div.addEventListener("touchend", (e) => {
+                    clearTimeout(pressTimer);
+                    if (Math.abs(e.changedTouches[0].clientX - startX) > 50) {
+                        toggleStrike(index);
+                    }
+                });
+
+                div.addEventListener("mousedown", (e) => {
+                    startX = e.clientX;
                     pressTimer = setTimeout(() => makeEditable(div, index), 500);
                 });
-                div.addEventListener("mouseup", () => clearTimeout(pressTimer));
+                div.addEventListener("mouseup", (e) => {
+                    clearTimeout(pressTimer);
+                    if (Math.abs(e.clientX - startX) > 50) {
+                        toggleStrike(index);
+                    }
+                });
                 div.addEventListener("mouseleave", () => clearTimeout(pressTimer));
 
                 taskList.appendChild(div);
             });
-            inputSection.style.display = tasks.length >= 5 ? "none" : "block";
+            inputSection.style.display = tasks.length >= 6 ? "none" : "block";
+        }
+
+        function toggleStrike(index) {
+            completed[index] = !completed[index];
+            localStorage.setItem("completed", JSON.stringify(completed));
+            renderTasks();
         }
 
         function makeEditable(div, index) {
@@ -108,9 +136,11 @@
         function addTask() {
             const input = document.getElementById("taskInput");
             const value = input.value.trim();
-            if (value && tasks.length < 5) {
+            if (value && tasks.length < 6) {
                 tasks.push(value);
+                completed.push(false);
                 localStorage.setItem("tasks", JSON.stringify(tasks));
+                localStorage.setItem("completed", JSON.stringify(completed));
                 input.value = "";
                 renderTasks();
             }
@@ -119,7 +149,9 @@
         function clearTasks() {
             if (confirm("Clear all tasks?")) {
                 tasks = [];
+                completed = [];
                 localStorage.removeItem("tasks");
+                localStorage.removeItem("completed");
                 renderTasks();
             }
         }
