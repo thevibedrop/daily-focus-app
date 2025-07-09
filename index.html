@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Today's Focus</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
       font-family: sans-serif;
@@ -18,7 +17,7 @@
       font-size: 1em;
     }
     .task {
-      margin: 0.5em 0;
+      margin: 0.5em auto;
       font-size: 1.2em;
       background: white;
       padding: 1em;
@@ -28,10 +27,15 @@
       user-select: none;
       touch-action: none;
       transition: opacity 2s ease-out;
+      width: 90%;
+      max-width: 400px;
     }
-    .completed {
+    .completed-task {
       text-decoration: line-through;
       color: gray;
+      background: #f0f0f0;
+    }
+    .fade-out {
       opacity: 0;
     }
     .editing input {
@@ -42,31 +46,78 @@
     #inputSection {
       display: block;
     }
+    #footer {
+      margin-top: 3em;
+    }
+    .link {
+      font-size: 1em;
+      color: #00796b;
+      text-decoration: underline;
+      cursor: pointer;
+      margin-top: 1.5em;
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
   <h1>What Are You Working On Today?</h1>
   <div id="inputSection">
-    <input type="text" id="taskInput" placeholder="Enter task (max 6 visible)">
-    <br>
+    <input type="text" id="taskInput" placeholder="Enter task (max 6 visible)" />
+    <br />
     <button onclick="addTask()">Add Task</button>
   </div>
-  <button onclick="clearTasks()">Clear All</button>
   <div id="taskList"></div>
-
+  <div id="footer">
+    <div id="showOnlyCompletedLink" class="link" onclick="showOnlyCompleted()">Show me what I've done today</div>
+    <div id="backToListLink" class="link" style="display:none;" onclick="showTodayList()">Back to today's list</div>
+  </div>
   <script>
+    const todayKey = "2025-07-09";
     let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
     let completed = JSON.parse(localStorage.getItem("completed")) || [];
+    let completedDates = JSON.parse(localStorage.getItem("completedDates")) || [];
+
+    if (completed.length !== tasks.length) completed = tasks.map(() => false);
+    if (completedDates.length !== tasks.length) completedDates = tasks.map(() => null);
+
+    for (let i = 0; i < completed.length; i++) {
+      if (completed[i] && completedDates[i] !== todayKey) {
+        completed[i] = false;
+        completedDates[i] = null;
+      }
+    }
+
+    let onlyCompletedMode = false;
+
     const taskList = document.getElementById("taskList");
     const inputSection = document.getElementById("inputSection");
+    const showOnlyLink = document.getElementById("showOnlyCompletedLink");
+    const backLink = document.getElementById("backToListLink");
 
     function saveTasks() {
       localStorage.setItem("tasks", JSON.stringify(tasks));
       localStorage.setItem("completed", JSON.stringify(completed));
+      localStorage.setItem("completedDates", JSON.stringify(completedDates));
     }
 
     function renderTasks() {
       taskList.innerHTML = "";
+
+      if (onlyCompletedMode) {
+        tasks.forEach((task, index) => {
+          if (completed[index] && completedDates[index] === todayKey) {
+            const div = document.createElement("div");
+            div.className = "task completed-task";
+            div.textContent = task;
+            taskList.appendChild(div);
+          }
+        });
+        inputSection.style.display = "none";
+        showOnlyLink.style.display = "none";
+        backLink.style.display = "inline-block";
+        return;
+      }
+
       tasks.forEach((task, index) => {
         if (!completed[index]) {
           const div = document.createElement("div");
@@ -74,7 +125,6 @@
           div.textContent = task;
           div.dataset.index = index;
 
-          // Swipe detection and long press for editing
           let startX = 0;
           let longPressTimer;
 
@@ -87,9 +137,10 @@
             const endX = e.changedTouches[0].clientX;
             const dx = endX - startX;
             if (Math.abs(dx) > 50) {
-              div.classList.add("completed");
+              div.classList.add("fade-out");
               setTimeout(() => {
                 completed[index] = true;
+                completedDates[index] = todayKey;
                 saveTasks();
                 renderTasks();
               }, 2000);
@@ -105,9 +156,10 @@
             clearTimeout(longPressTimer);
             const dx = e.clientX - mouseStart;
             if (Math.abs(dx) > 50) {
-              div.classList.add("completed");
+              div.classList.add("fade-out");
               setTimeout(() => {
                 completed[index] = true;
+                completedDates[index] = todayKey;
                 saveTasks();
                 renderTasks();
               }, 2000);
@@ -118,8 +170,19 @@
         }
       });
 
-      const visibleCount = completed.filter(c => !c).length;
-      inputSection.style.display = visibleCount >= 6 ? "none" : "block";
+      inputSection.style.display = completed.filter(c => !c).length >= 6 ? "none" : "block";
+      showOnlyLink.style.display = "inline-block";
+      backLink.style.display = "none";
+    }
+
+    function showOnlyCompleted() {
+      onlyCompletedMode = true;
+      renderTasks();
+    }
+
+    function showTodayList() {
+      onlyCompletedMode = false;
+      renderTasks();
     }
 
     function startEdit(index) {
@@ -160,18 +223,9 @@
       if (value && completed.filter(c => !c).length < 6) {
         tasks.push(value);
         completed.push(false);
+        completedDates.push(null);
         saveTasks();
         input.value = "";
-        renderTasks();
-      }
-    }
-
-    function clearTasks() {
-      if (confirm("Clear all tasks?")) {
-        tasks = [];
-        completed = [];
-        localStorage.removeItem("tasks");
-        localStorage.removeItem("completed");
         renderTasks();
       }
     }
